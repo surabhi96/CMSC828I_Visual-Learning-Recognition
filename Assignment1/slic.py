@@ -9,13 +9,16 @@ from functions import *
 #     plot_image(cv2.imread(i),i.split("/")[-1])
 
 im = cv2.imread(im_list[0])
-seg = cv2.imread(im_list[0].replace("_s","_s_GT"))
+# seg = cv2.imread(im_list[0].replace("_s","_s_GT"))
 
-plot_image(im,"Image")
-plot_image(seg,"Segmentation")
+# plot_image(im,"Image")
+# plot_image(seg,"Segmentation")
 
-Q1 : K-means on RBG
+# cluster_pixels(im,10)
+
+# Q1 : K-means on RBG
 for k in [5,10,50]:
+# for k in [50]:
     clusters = cluster_pixels(im,k)
     _ = rgb_segment(clusters,n = k, title =  "naive clustering: Pixelwise class plot: Clusters: " + str(k),legend = False)
     superpixel_plot(im,clusters,title =  "naive clustering: Superpixel plot: Clusters: "+ str(k))
