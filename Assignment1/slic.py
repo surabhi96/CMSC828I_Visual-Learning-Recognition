@@ -4,7 +4,7 @@ import numpy as np
 # import matplotlib.patches as mpatches
 # from sklearn.cluster import KMeans
 
-from functions import *
+from Assignment1.functions import *
 # for i in im_list:
 #     plot_image(cv2.imread(i),i.split("/")[-1])
 
@@ -24,10 +24,10 @@ for k in [5,10,50]:
     superpixel_plot(im,clusters,title =  "naive clustering: Superpixel plot: Clusters: "+ str(k))
 
 # Q2 : K-means on RBGXY
-# for k in [5,10,25,50,150]:
-#     clusters = cluster_rgbxy(im,k)
-#     _ = rgb_segment(clusters,n = k, title =  "naive clustering: Pixelwise class plot: Clusters: " + str(k),legend = False)
-#     superpixel_plot(im,clusters,title =  "naive clustering: Superpixel plot: Clusters: "+ str(k))
+for k in [5,10,25,50,150]:
+    clusters = cluster_rgbxy(im,k)
+    _ = rgb_segment(clusters,n = k, title =  "naive clustering: Pixelwise class plot: Clusters: " + str(k),legend = False)
+    superpixel_plot(im,clusters,title =  "naive clustering: Superpixel plot: Clusters: "+ str(k))
 
 #TODO diplay your SLIC results.
 
