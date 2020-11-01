@@ -438,11 +438,6 @@ def SLIC(im, k):
         # for cp in cluster_points:
         #     print(np.shape(cp))
 
-        final_cluster_points = cluster_points
+        # final_cluster_points = cluster_points
 
-
-
-
-
-    segmap = []
     return segmap
