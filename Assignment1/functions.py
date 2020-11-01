@@ -297,11 +297,11 @@ def cluster_rgbxy(im,k):
 def calculate_gradient(im, x, y, h, w):
     if (x + 1) >= w or (y+1) >= h or (x-1) < 0 or (y-1) < 0:
         return sys.maxsize
-    return euclidean_distances(im[x+1][y] - im[x-1][y])^2 + euclidean_distances(im[x][y+1] - im[x][y-1])^2
+    return np.linalg.norm(im[x+1][y] - im[x-1][y])**2 + np.linalg.norm(im[x][y+1] - im[x][y-1])**2
 
 def calculate_distance(im, x_i, y_i, x_k, y_k, m, S):
-    d_lab = np.sqrt((im[x_k][y_k][0] - im[x_i][y_i][0])^2 + (im[x_k][y_k][1] - im[x_i][y_i][1])^2 + (im[x_k][y_k][2] - im[x_i][y_i][2])^2)
-    d_xy = np.sqrt((x_k - x_i)^2 + (y_k - y_i)^2)
+    d_lab = np.sqrt((im[x_k][y_k][0] - im[x_i][y_i][0])**2 + (im[x_k][y_k][1] - im[x_i][y_i][1])**2 + (im[x_k][y_k][2] - im[x_i][y_i][2])**2)
+    d_xy = np.sqrt((x_k - x_i)**2 + (y_k - y_i)**2)
     return d_lab + m/S*d_xy
 
 def define_search_region(cluster, im, h, w, S):
@@ -310,21 +310,22 @@ def define_search_region(cluster, im, h, w, S):
     if (x - S) < 0:
         left = 0
     else:
-        left = x - S
+        left = int(x - S)
     if (x + S) >= w:
         right = w-1
     else:
-        right = x+S
+        right = int(x+S)
     if (y - S) < 0:
         top = 0
     else:
-        top = y - S
+        top = int(y - S)
     if (y + S) >= h:
         bottom = h-1
     else:
-        right = y+S
+        bottom = int(y+S)
 
-    sub_im = im[left:right+1][top:bottom+1]
+    print(left, right, top, bottom)
+    sub_im = im[top:bottom+1,left:right+1,:]
     im_vector = sub_im.reshape((-1, 3))
     arr = [[[j, i] for i in range(left, right+1)] for j in range(top, bottom+1)]
     arr = np.asarray(arr)
@@ -370,11 +371,17 @@ def SLIC(im, k):
     h_temp = int(S/2)
     w_temp = int(S/2)
     count = 0
+    flag = False
     while h_temp < h:
         while w_temp < w:
             cluster_centers[count] = [im[h_temp][w_temp][0], im[h_temp][w_temp][1], im[h_temp][w_temp][2], h_temp, w_temp]
             w_temp = int(w_temp + S)
             count = count + 1
+            if count >= k:
+                flag = True
+                break
+        if flag:
+            break
         w_temp = int(S/2)
         h_temp = int(h_temp + S)
 
@@ -431,13 +438,17 @@ def SLIC(im, k):
             # points = [[im[row][col] for row in cp[:,0]] for col in cp[:,1]]
             if (len(cp)):
                 new_centers = cp.mean(axis=0)
-                dist_moved += np.linalg.norm(np.asarray(cluster_centers[i]) - new_centers)
+                new_centers = np.asarray(new_centers, dtype='int')
+                dist_moved += np.linalg.norm(np.asarray(cluster_centers[i][3:]) - new_centers)
                 # update new cluster centers
-                cluster_centers[i] = new_centers
+                cluster_centers[i][3:] = new_centers
+                cluster_centers[i][0] = im[cluster_centers[i][3]][cluster_centers[i][4]][0]
+                cluster_centers[i][1] = im[cluster_centers[i][3]][cluster_centers[i][4]][1]
+                cluster_centers[i][2] = im[cluster_centers[i][3]][cluster_centers[i][4]][2]
 
         # for cp in cluster_points:
         #     print(np.shape(cp))
 
         # final_cluster_points = cluster_points
-
+    segmap = np.asarray(segmap)
     return segmap
