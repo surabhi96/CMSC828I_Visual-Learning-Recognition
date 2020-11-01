@@ -396,10 +396,15 @@ def SLIC(im, k):
     dist_moved = float('inf')
 
     pixel_distances = [[sys.maxsize for i in range(w)] for j in range(h)]
+    segmap = [[0 for i in range(w)] for j in range(h)]
 
     while dist_moved > thresh:
 
-        for cluster in cluster_centers:
+        cluster_points = []
+        for i in range(k):
+            cluster_points.append([])
+
+        for k_ind, cluster in enumerate(cluster_centers):
             im_vector, im_vector_xy, left, right, top, bottom = define_search_region(cluster, im, h, w, S)
 
             d_lab = np.linalg.norm(im_vector - np.tile(cluster[:3], (len(im_vector), 1)), axis=1)
@@ -411,8 +416,29 @@ def SLIC(im, k):
                 for j in range(left, right+1):
                     if d[count] < pixel_distances[i][j]:
                         pixel_distances[i][j] = d[count]
-
+                        segmap[i][j] = k_ind
                     count = count + 1
+
+            for i in range(h):
+                for j in range(w):
+                    cluster_points[int(segmap[i][j])].append([i,j])
+
+        dist_moved = 0
+        for i in range(k):
+            cp = cluster_points[i]
+            cp = np.asarray(cp)
+            # get points
+            # points = [[im[row][col] for row in cp[:,0]] for col in cp[:,1]]
+            if (len(cp)):
+                new_centers = cp.mean(axis=0)
+                dist_moved += np.linalg.norm(np.asarray(cluster_centers[i]) - new_centers)
+                # update new cluster centers
+                cluster_centers[i] = new_centers
+
+        # for cp in cluster_points:
+        #     print(np.shape(cp))
+
+        final_cluster_points = cluster_points
 
 
 
