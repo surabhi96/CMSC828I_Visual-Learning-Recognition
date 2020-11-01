@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans
 import numpy as np
 import math
 from sklearn.metrics.pairwise import euclidean_distances
+import sys
 
 # im_list = ['MSRC_ObjCategImageDatabase_v1/1_22_s.bmp',
 #            'MSRC_ObjCategImageDatabase_v1/1_27_s.bmp',
@@ -293,6 +294,44 @@ def cluster_rgbxy(im,k):
 #     assert 1==2,"NOT IMPLEMENTED"
 #     return segmap
 
+def calculate_gradient(im, x, y, h, w):
+    if (x + 1) >= w or (y+1) >= h or (x-1) < 0 or (y-1) < 0:
+        return sys.maxsize
+    return euclidean_distances(im[x+1][y] - im[x-1][y])^2 + euclidean_distances(im[x][y+1] - im[x][y-1])^2
+
+def calculate_distance(im, x_i, y_i, x_k, y_k, m, S):
+    d_lab = np.sqrt((im[x_k][y_k][0] - im[x_i][y_i][0])^2 + (im[x_k][y_k][1] - im[x_i][y_i][1])^2 + (im[x_k][y_k][2] - im[x_i][y_i][2])^2)
+    d_xy = np.sqrt((x_k - x_i)^2 + (y_k - y_i)^2)
+    return d_lab + m/S*d_xy
+
+def define_search_region(cluster, im, h, w, S):
+    x = cluster[3]
+    y = cluster[4]
+    if (x - S) < 0:
+        left = 0
+    else:
+        left = x - S
+    if (x + S) >= w:
+        right = w-1
+    else:
+        right = x+S
+    if (y - S) < 0:
+        top = 0
+    else:
+        top = y - S
+    if (y + S) >= h:
+        bottom = h-1
+    else:
+        right = y+S
+
+    sub_im = im[left:right+1][top:bottom+1]
+    im_vector = sub_im.reshape((-1, 3))
+    arr = [[[j, i] for i in range(left, right+1)] for j in range(top, bottom+1)]
+    arr = np.asarray(arr)
+    im_vector_xy = arr.reshape((-1, 2))
+    # im_vec_dist = np.repeat(im_vector, repeats=k, axis=0)
+    # im_vec_dist_xy = np.repeat(im_vector_xy, repeats=k, axis=0)
+    return im_vector, im_vector_xy, left, right, top, bottom
 #TODO
 ############Algorithm############
 #Compute grid steps: S
@@ -319,5 +358,65 @@ def SLIC(im, k):
     returns:
     segmap: 2D matrix where each value corresponds to the image pixel's cluster number
     """
-    
+    # convert to lab space
+    im = cv2.cvtColor(im, cv2.COLOR_BGR2LAB)
+    h, w, d = np.shape(im)
+    # compute S
+    S = np.sqrt((h * w) / k)
+    m = 10  # from paper
+
+    # initialize cluster centers
+    cluster_centers = [[0 for x in range(5)] for y in range(k)]
+    h_temp = int(S/2)
+    w_temp = int(S/2)
+    count = 0
+    while h_temp < h:
+        while w_temp < w:
+            cluster_centers[count] = [im[h_temp][w_temp][0], im[h_temp][w_temp][1], im[h_temp][w_temp][2], h_temp, w_temp]
+            w_temp = int(w_temp + S)
+            count = count + 1
+        w_temp = int(S/2)
+        h_temp = int(h_temp + S)
+
+    # perturb to lowest gradient position
+    for ind, cluster in enumerate(cluster_centers):
+        center_gradient = calculate_gradient(im, cluster[3], cluster[4], h, w)
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                gradient = calculate_gradient(im, cluster[3] + i, cluster[4] + j, h, w)
+                if gradient < center_gradient:
+                    cluster_centers[ind][3] = cluster[3] + i
+                    cluster_centers[ind][4] = cluster[4] + i
+                    cluster_centers[ind][0] = im[cluster[3]][cluster[4]][0]
+                    cluster_centers[ind][1] = im[cluster[3]][cluster[4]][1]
+                    cluster_centers[ind][2] = im[cluster[3]][cluster[4]][2]
+                    center_gradient = gradient
+
+    thresh = 850
+    dist_moved = float('inf')
+
+    pixel_distances = [[sys.maxsize for i in range(w)] for j in range(h)]
+
+    while dist_moved > thresh:
+
+        for cluster in cluster_centers:
+            im_vector, im_vector_xy, left, right, top, bottom = define_search_region(cluster, im, h, w, S)
+
+            d_lab = np.linalg.norm(im_vector - np.tile(cluster[:3], (len(im_vector), 1)), axis=1)
+            d_xy = np.linalg.norm(im_vector_xy - np.tile(cluster[3:], (len(im_vector_xy), 1)), axis=1)
+
+            d = d_lab + m/S*d_xy
+            count = 0
+            for i in range(top, bottom+1):
+                for j in range(left, right+1):
+                    if d[count] < pixel_distances[i][j]:
+                        pixel_distances[i][j] = d[count]
+
+                    count = count + 1
+
+
+
+
+
+    segmap = []
     return segmap
