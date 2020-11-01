@@ -6,6 +6,8 @@ import numpy as np
 import math
 from sklearn.metrics.pairwise import euclidean_distances
 import sys
+# from skimage import color
+
 
 # im_list = ['MSRC_ObjCategImageDatabase_v1/1_22_s.bmp',
 #            'MSRC_ObjCategImageDatabase_v1/1_27_s.bmp',
@@ -99,13 +101,13 @@ def cluster_pixels(im,k):
     #TODO Pixelwise clustering   
     
     # convert BGR to RGB
-    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     h, w, d = np.shape(im)
     im_vector = im.reshape((-1,3))
     # cluster_centers ~ initialization
 
     # pick random x and y and choose their rgb value
-    np.random.seed(100)
+    np.random.seed(20)
     cluster_centers = im[np.random.choice(h, k), np.random.choice(w, k)]
     # cluster_centers = (np.random.choice(255, k*3)).reshape((-1,3))
     
@@ -116,26 +118,26 @@ def cluster_pixels(im,k):
     im_vec_dist = np.repeat(im_vector, repeats=k, axis=0)
     distance_moved = float('inf')
     # convergence threshold
-    thresh = 180
+    thresh = 400
     if (k == 50):
         thresh = 850
     final_cluster_points = 0
-
+    # print('initial')
+    # print(im_vec_dist.shape)
+    # print((np.tile(cluster_centers, (len(im_vector), 1))).shape)
     while(distance_moved > thresh):
-
+        # print(cluster_centers)
         # initialize empty cluster bins
         cluster_points = []
         for i in range(k):
             cluster_points.append([])
-
         dist = np.linalg.norm( im_vec_dist - np.tile(cluster_centers , (len(im_vector),1)), axis=1 )
-
         # allocate cluster center to each pixel
         it = 0
         for i in range(0, len(dist), k):
             current_dist = dist[i : i+k]
             min_value = min(current_dist)
-            min_position = np.argmin(current_dist)    
+            min_position = np.argmin(current_dist)
             # segregate the points in k bins
             # append point index 
             cluster_points[min_position].append(it)
@@ -143,7 +145,7 @@ def cluster_pixels(im,k):
             
         # recompute cluster centers
         distance_moved = 0
-        for i in range (k):
+        for i in range(k):
             cp = cluster_points[i]
             # get points
             a = im_vector[cp]
@@ -152,12 +154,15 @@ def cluster_pixels(im,k):
                 distance_moved += np.linalg.norm(cluster_centers[i] - new_centers)
                 # update new cluster centers
                 cluster_centers[i] = new_centers
+            break
 
         # for cp in cluster_points: 
         #     print(np.shape(cp))
 
         final_cluster_points = cluster_points
+        # print(cluster_centers)
         print(distance_moved)
+        break
 
     index_vector = np.empty([len(im_vector),1])
     # cp is the point instances 
@@ -173,6 +178,70 @@ def cluster_pixels(im,k):
     #segmap is nXm. Each value in the 2D array is the cluster assigned to that pixel
     return segmap
 
+def cluster_rgb_for(im,k):
+    """
+    Given image im and asked for k clusters, return nXm size 2D array
+    segmap[0,0] is the class of pixel im[0,0,:]
+    """
+
+    # assert 1==2,"NOT IMPLEMENTED"
+    segmap = np.zeros((im.shape[0], im.shape[1], 3))
+    segmap_xy = np.zeros((im.shape[0], im.shape[1]))
+    segmap_k = np.zeros((im.shape[0], im.shape[1]))
+    cluster_centers_rgb = np.zeros((k,3))
+    cluster_centers_xy = np.zeros((k,2))
+
+    clusters_rgb = [[] for i in range(k)]
+    clusters_xy = [[] for i in range(k)]
+
+    for n in range(k):
+      cluster_centers_xy[n] = [np.random.randint(0,im.shape[0]), np.random.randint(0,im.shape[1])]
+      print(cluster_centers_xy[n])
+      cluster_centers_rgb[n] = [im[int(cluster_centers_xy[n][0])][int(cluster_centers_xy[n][1])][0], im[int(cluster_centers_xy[n][0])][int(cluster_centers_xy[n][1])][1], im[int(cluster_centers_xy[n][0])][int(cluster_centers_xy[n][1])][2]]
+
+    print(cluster_centers_rgb)
+    print(cluster_centers_xy)
+
+    min_dist = np.ones((im.shape[0], im.shape[1]))*sys.maxsize
+    move = sys.maxsize
+    while move > 20:
+      move = 0
+      #assign labels
+      for i in range(im.shape[0]):
+        for j in range(im.shape[1]):
+          for clust in range(k):
+            dist = np.sqrt((im[i][j][0] - cluster_centers_rgb[clust][0])**2 + (im[i][j][1] - cluster_centers_rgb[clust][1])**2 + (im[i][j][2] - cluster_centers_rgb[clust][2])**2)
+            # dist = (euclidean_distances([[im[i][j][0]],[im[i][j][1]], [im[i][j][2]]], [[cluster_centers_rgb[clust][0]],[cluster_centers_rgb[clust][1]], [cluster_centers_rgb[clust][2]]]))
+            # print("dist",dist)
+            if dist < min_dist[i][j]:
+              # segmap[i][j] = cluster_centers_rgb[clust]
+              # segmap_xy[i][j] = cluster_centers_xy[clust]
+              segmap_k[i][j] = int(clust)
+              min_dist[i][j] = dist
+
+      #recompute centers
+      for i in range(im.shape[0]):
+        for j in range(im.shape[1]):
+          clusters_rgb[int(segmap_k[i][j])].append(im[i][j])
+          # clusters_xy[int(segmap_k[i][j])].append((i,j))
+
+      for clust in range(k):
+        old = np.copy(cluster_centers_rgb[clust])
+        print(cluster_centers_rgb[clust])
+        cluster_centers_rgb[clust] = np.mean(clusters_rgb[clust], axis = 0)
+        print(cluster_centers_rgb[clust])
+        move = move + np.linalg.norm(cluster_centers_rgb[clust] - old)
+        print(move)
+      print(move)
+        # cluster_centers_xy[clust] = np.mean(clusters_xy[clust], axis = 0)
+
+    for i in range(im.shape[0]):
+        for j in range(im.shape[1]):
+          segmap[i][j] = cluster_centers_rgb[int(segmap_k[i][j])]
+    print(segmap.shape)
+    print(segmap_k)
+
+    return segmap_k
 #TODO: clustering r,b,g,x,y values 
 #try k = 20,80,200,400,800
 def cluster_rgbxy(im,k):
@@ -181,7 +250,7 @@ def cluster_rgbxy(im,k):
     segmap[0,0] is the class of pixel im[0,0,:]
     """
     # convert BGR to RGB
-    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     h, w, d = np.shape(im)
     im_vector = im.reshape((-1, 3))
     arr = [[[j, i] for i in range(w)] for j in range(h)]
@@ -323,8 +392,6 @@ def define_search_region(cluster, im, h, w, S):
         bottom = h-1
     else:
         bottom = int(y+S)
-
-    print(left, right, top, bottom)
     sub_im = im[top:bottom+1,left:right+1,:]
     im_vector = sub_im.reshape((-1, 3))
     arr = [[[j, i] for i in range(left, right+1)] for j in range(top, bottom+1)]
