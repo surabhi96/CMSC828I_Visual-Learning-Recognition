@@ -104,35 +104,33 @@ def cluster_pixels(im,k):
     # im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     h, w, d = np.shape(im)
     im_vector = im.reshape((-1,3))
-    # cluster_centers ~ initialization
-
-    # pick random x and y and choose their rgb value
-    np.random.seed(20)
-    cluster_centers = im[np.random.choice(h, k), np.random.choice(w, k)]
-    # cluster_centers = (np.random.choice(255, k*3)).reshape((-1,3))
     
-    # dist = np.linalg.norm( np.tile(im_vector[0] , (k,1)) - cluster_centers, axis=1)
-    # dist = np.linalg.norm( np.repeat(im_vector, repeats=k, axis=0) - np.tile(cluster_centers , (len(im_vector),1)), axis=1 )
-    # dist = dist.reshape(len(dist),-1)
-
+    # pick random x and y and choose their rgb value
+    np.random.seed(100)
+    cluster_centers = im[np.random.choice(h, k), np.random.choice(w, k)]
+    
     im_vec_dist = np.repeat(im_vector, repeats=k, axis=0)
-    distance_moved = float('inf')
+    im_vec_dist = np.array(im_vec_dist, dtype=np.int16)
+    
     # convergence threshold
-    thresh = 400
+    thresh = 20
     if (k == 50):
-        thresh = 850
+        thresh = 50
     final_cluster_points = 0
-    # print('initial')
-    # print(im_vec_dist.shape)
-    # print((np.tile(cluster_centers, (len(im_vector), 1))).shape)
+    distance_moved = float('inf')
+
     while(distance_moved > thresh):
-        # print(cluster_centers)
+
         # initialize empty cluster bins
+        # k * number of points allocated to each cluster
         cluster_points = []
         for i in range(k):
             cluster_points.append([])
+        
         dist = np.linalg.norm( im_vec_dist - np.tile(cluster_centers , (len(im_vector),1)), axis=1 )
+
         # allocate cluster center to each pixel
+        # it denotes the point in consideration amongst all points in im_vector
         it = 0
         for i in range(0, len(dist), k):
             current_dist = dist[i : i+k]
@@ -142,39 +140,31 @@ def cluster_pixels(im,k):
             # append point index 
             cluster_points[min_position].append(it)
             it+=1
-            
+
         # recompute cluster centers
         distance_moved = 0
-        for i in range(k):
+        for i in range (k):
+            # take in points to a given cluster
             cp = cluster_points[i]
-            # get points
             a = im_vector[cp]
             if (len(a)):
-                new_centers = a.mean(axis=0)
-                distance_moved += np.linalg.norm(cluster_centers[i] - new_centers)
+                new_center = a.mean(axis=0)
+                # print(new_center)
+                distance_moved += np.linalg.norm(cluster_centers[i] - new_center)
                 # update new cluster centers
-                cluster_centers[i] = new_centers
-            break
-
-        # for cp in cluster_points: 
-        #     print(np.shape(cp))
+                cluster_centers[i] = new_center
 
         final_cluster_points = cluster_points
-        # print(cluster_centers)
         print(distance_moved)
-        break
 
     index_vector = np.empty([len(im_vector),1])
     # cp is the point instances 
     for i in range(k):
         cp = final_cluster_points[i] 
-        # print(np.shape(cp))
         index_vector[cp] = i
     segmap = index_vector.reshape((h,w))
-    # print(segmap)
-    # print(np.shape(segmap))
+    
     # at every location, put the corresponding cluster number
-    # segmap = np.empty()
     #segmap is nXm. Each value in the 2D array is the cluster assigned to that pixel
     return segmap
 
